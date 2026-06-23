@@ -1,0 +1,89 @@
+import { Link, useLocation } from 'react-router-dom';
+import { useWorkspaceStore } from '../../store/workspaceStore';
+import { 
+  LayoutDashboard, 
+  Package, 
+  ShoppingCart, 
+  ArrowRightLeft, 
+  Users, 
+  Clock,
+  Shield,
+  X
+} from 'lucide-react';
+
+const navigation = [
+  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Inventario', href: '/inventory', icon: Package },
+  { name: 'Ventas', href: '/sales', icon: ShoppingCart },
+  { name: 'Compras', href: '/purchases', icon: ArrowRightLeft },
+  { name: 'Historial', href: '/history', icon: Clock },
+  { name: 'Proveedores', href: '/suppliers', icon: Users },
+  { name: 'Equipo', href: '/team', icon: Shield },
+];
+
+interface SidebarProps {
+  isOpen?: boolean;
+  setIsOpen?: (val: boolean) => void;
+}
+
+export const Sidebar = ({ isOpen = false, setIsOpen }: SidebarProps) => {
+  const { pathname } = useLocation();
+  const { activeWorkspace } = useWorkspaceStore();
+
+  if (!activeWorkspace) {
+    return null;
+  }
+
+  return (
+    <>
+      {/* Mobile Overlay */}
+      {isOpen && setIsOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden animate-in fade-in duration-300"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
+      {/* Sidebar Container */}
+      <div className={`fixed inset-y-0 left-0 z-50 flex h-full w-64 flex-col glass border-r border-black/5 px-4 py-6 transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 shadow-2xl lg:shadow-none ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="flex items-center justify-between px-2 pb-8">
+          <div className="flex items-center gap-3">
+            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-1.5 rounded-xl shadow-lg shadow-indigo-500/20">
+              <img src="/logo.svg" alt="Current Logo" className="h-6 w-6 object-contain brightness-0 invert" />
+            </div>
+            <span className="text-xl font-bold tracking-tight text-foreground">Current</span>
+          </div>
+          {setIsOpen && (
+            <button 
+              onClick={() => setIsOpen(false)}
+              className="lg:hidden rounded-lg p-1.5 hover:bg-black/5 transition-colors text-muted-foreground"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
+        </div>
+
+        <nav className="flex-1 space-y-1.5">
+          {navigation.map((item) => {
+            const isActive = pathname === item.href;
+            return (
+              <Link
+                key={item.name}
+                to={item.href}
+                onClick={() => setIsOpen && setIsOpen(false)}
+                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-300 ${
+                  isActive
+                    ? 'bg-primary/10 text-primary shadow-sm border border-primary/20'
+                    : 'text-muted-foreground hover:bg-black/5 hover:text-foreground'
+                }`}
+              >
+                <item.icon className={`h-5 w-5 transition-colors ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                {item.name}
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
+    </>
+  );
+};
