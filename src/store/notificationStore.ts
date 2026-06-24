@@ -9,6 +9,7 @@ interface NotificationState {
   fetchNotifications: (userId: string) => Promise<void>;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: (userId: string) => Promise<void>;
+  clearAllNotifications: (userId: string) => Promise<void>;
   addNotification: (notification: Notification) => void;
   subscribeToNotifications: (userId: string) => () => void;
 }
@@ -59,6 +60,14 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       notifications: state.notifications.map((n) => ({ ...n, read: true })),
       unreadCount: 0,
     }));
+  },
+
+  clearAllNotifications: async (userId: string) => {
+    await supabase.from('notifications').delete().eq('user_id', userId);
+    set({
+      notifications: [],
+      unreadCount: 0,
+    });
   },
 
   addNotification: (notification: Notification) => {

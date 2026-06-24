@@ -370,9 +370,20 @@ export const Team = () => {
                           <Check className="h-3 w-3" /> Colaborador
                         </span>
                       )}
+                      {m.user_id === activeWorkspace?.created_by && (
+                        <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2.5 py-0.5 text-xs font-semibold text-amber-500 border border-amber-500/10">
+                          Dueño
+                        </span>
+                      )}
                     </td>
                     <td className="p-4 align-middle text-right">
-                      {m.user_id !== profile?.id ? (
+                      {m.user_id === activeWorkspace?.created_by ? (
+                        <span className="text-sm text-muted-foreground italic">
+                          {m.user_id === profile?.id ? 'Tú (Dueño)' : 'Dueño del almacén'}
+                        </span>
+                      ) : m.user_id === profile?.id ? (
+                        <span className="text-sm text-muted-foreground italic">Tú (Actual)</span>
+                      ) : (
                         <div className="flex justify-end gap-2">
                           <select
                             value={m.role}
@@ -393,8 +404,6 @@ export const Team = () => {
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
-                      ) : (
-                        <span className="text-sm text-muted-foreground italic">Tú (Actual)</span>
                       )}
                     </td>
                   </tr>

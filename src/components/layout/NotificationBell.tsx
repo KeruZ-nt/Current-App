@@ -41,7 +41,7 @@ function NotificationIcon({ type }: { type: Notification['type'] }) {
 
 export const NotificationBell = () => {
   const { user } = useAuthStore();
-  const { notifications, unreadCount, fetchNotifications, markAsRead, markAllAsRead, subscribeToNotifications } =
+  const { notifications, unreadCount, fetchNotifications, markAsRead, markAllAsRead, clearAllNotifications, subscribeToNotifications } =
     useNotificationStore();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -88,6 +88,11 @@ export const NotificationBell = () => {
     await markAllAsRead(user.id);
   };
 
+  const handleClearAll = async () => {
+    if (!user) return;
+    await clearAllNotifications(user.id);
+  };
+
   return (
     <div className="relative" ref={panelRef}>
       {/* Bell button */}
@@ -122,15 +127,27 @@ export const NotificationBell = () => {
                 </span>
               )}
             </div>
-            {unreadCount > 0 && (
-              <button
-                onClick={handleMarkAll}
-                className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                title="Marcar todas como leídas"
-              >
-                <CheckCheck className="h-3.5 w-3.5" />
-                Leer todo
-              </button>
+            {notifications.length > 0 && (
+              <div className="flex items-center gap-1">
+                {unreadCount > 0 && (
+                  <button
+                    onClick={handleMarkAll}
+                    className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                    title="Marcar todas como leídas"
+                  >
+                    <CheckCheck className="h-3.5 w-3.5" />
+                    Leer
+                  </button>
+                )}
+                <button
+                  onClick={handleClearAll}
+                  className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-red-500/70 hover:bg-red-500/10 hover:text-red-500 transition-colors"
+                  title="Limpiar todas las notificaciones"
+                >
+                  <XCircle className="h-3.5 w-3.5" />
+                  Limpiar
+                </button>
+              </div>
             )}
           </div>
 

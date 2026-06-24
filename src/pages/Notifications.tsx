@@ -47,6 +47,7 @@ export const Notifications = () => {
     fetchNotifications,
     markAsRead,
     markAllAsRead,
+    clearAllNotifications,
     subscribeToNotifications,
   } = useNotificationStore();
   const navigate = useNavigate();
@@ -58,6 +59,16 @@ export const Notifications = () => {
     const unsub = subscribeToNotifications(user.id);
     return unsub;
   }, [user]);
+
+  const handleMarkAll = async () => {
+    if (!user) return;
+    await markAllAsRead(user.id);
+  };
+
+  const handleClearAll = async () => {
+    if (!user) return;
+    await clearAllNotifications(user.id);
+  };
 
   const handleClick = async (notif: Notification) => {
     if (!notif.read) {
@@ -88,15 +99,26 @@ export const Notifications = () => {
             <p className="text-muted-foreground">Historial de solicitudes y accesos.</p>
           </div>
         </div>
-        {unreadCount > 0 && (
-          <button
-            onClick={() => user && markAllAsRead(user.id)}
-            className="flex items-center gap-1.5 rounded-xl border border-black/10 px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-black/5 transition-colors"
-          >
-            <CheckCheck className="h-4 w-4" />
-            Marcar todas como leídas
-          </button>
-        )}
+        {notifications.length > 0 && (
+            <div className="flex gap-2">
+              {unreadCount > 0 && (
+                <button
+                  onClick={handleMarkAll}
+                  className="flex items-center gap-2 rounded-xl bg-indigo-500/10 px-4 py-2 text-sm font-semibold text-indigo-500 hover:bg-indigo-500/20 transition-colors border border-indigo-500/10"
+                >
+                  <CheckCheck className="h-4 w-4" />
+                  Marcar todas leídas
+                </button>
+              )}
+              <button
+                onClick={handleClearAll}
+                className="flex items-center gap-2 rounded-xl bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-500 hover:bg-red-500/20 transition-colors border border-red-500/10"
+              >
+                <XCircle className="h-4 w-4" />
+                Limpiar todo
+              </button>
+            </div>
+          )}
       </div>
 
       <div className="rounded-2xl glass overflow-hidden shadow-2xl">
