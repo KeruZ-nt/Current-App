@@ -168,6 +168,12 @@ create policy "Only admins can delete workspace members"
     )
   );
 
+create policy "Users can delete their own membership"
+  on workspace_members for delete
+  using (
+    user_id = auth.uid()
+  );
+
 -- NOTA: products UPDATE permite a todos los miembros porque la app actual
 --       actualiza stock desde ventas/compras sin RPC.
 --       Para producción real, migrar a supabase.rpc('decrement_stock', ...)

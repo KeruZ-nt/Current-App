@@ -506,6 +506,11 @@ export const Workspaces = () => {
                   </p>
                 </div>
               </div>
+              {error && (
+                <div className="mt-4 rounded-lg bg-destructive/15 p-3 text-sm text-destructive text-center font-medium border border-destructive/20">
+                  {error}
+                </div>
+              )}
               <div className="mt-6 flex justify-center gap-3">
                 <button
                   type="button"
