@@ -1,5 +1,5 @@
 const AUTH_MESSAGES: Record<string, string> = {
-  'Invalid login credentials': 'Credenciales inválidas.',
+  'Invalid login credentials': 'El correo electrónico no existe o la contraseña es incorrecta.',
   'Email not confirmed': 'Correo electrónico no confirmado. Revisa tu bandeja de entrada.',
   'User already registered': 'Este correo ya está registrado.',
   'Password should be at least 6 characters': 'La contraseña debe tener al menos 6 caracteres.',
