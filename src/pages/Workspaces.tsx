@@ -149,7 +149,7 @@ export const Workspaces = () => {
       .select('id, status')
       .eq('workspace_id', wsData.id)
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
     if (existingRequest) {
       if (existingRequest.status === 'pending') {
@@ -157,9 +157,24 @@ export const Workspaces = () => {
         setActionLoading(false);
         return;
       }
-      // Si fue rechazada antes, eliminar el registro viejo para permitir re-solicitar
+      // Si fue rechazada antes, reactivar la misma solicitud
       if (existingRequest.status === 'rejected') {
-        await supabase.from('access_requests').delete().eq('id', existingRequest.id);
+        const { error: reActivateError } = await supabase
+          .from('access_requests')
+          .update({ status: 'pending' })
+          .eq('id', existingRequest.id);
+
+        if (reActivateError) {
+          setError(sanitizeError(reActivateError));
+          setActionLoading(false);
+          return;
+        }
+
+        setJoinMode(false);
+        setInviteCode('');
+        addToast({ type: 'success', message: 'Solicitud enviada. El administrador revisará tu acceso y recibirás una notificación con el resultado.' });
+        setActionLoading(false);
+        return;
       }
     }
 
