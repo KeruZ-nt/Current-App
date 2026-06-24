@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { parseRawList, findBestMatch } from '../lib/parser';
+import { sanitizeError } from '../lib/errors';
 import type { ParsedItem } from '../lib/parser';
 import type { Product } from '../types';
 import { useWorkspaceStore } from '../store/workspaceStore';
@@ -106,17 +107,33 @@ export const Sales = () => {
         total_price: item.price * item.quantity,
       });
 
-      // Update stock
+      // Update stock atomically
       const product = dbProducts.find(p => p.id === item.dbProductId);
       if (product) {
-        await supabase.from('products').update({ stock: product.stock - item.quantity }).eq('id', product.id);
+        const { data: fresh } = await supabase
+          .from('products')
+          .select('stock')
+          .eq('id', product.id)
+          .single();
+        if (fresh) {
+          const { error: stockError } = await supabase
+            .from('products')
+            .update({ stock: fresh.stock - item.quantity })
+            .eq('id', product.id)
+            .gte('stock', item.quantity);
+          if (stockError) {
+            alert(sanitizeError(stockError));
+            setIsProcessing(false);
+            return;
+          }
+        }
       }
     }
 
     // Insert transactions
     const { error: txError } = await supabase.from('transactions').insert(transactionsToInsert);
     if (txError) {
-      alert('Error guardando venta: ' + txError.message);
+      alert(sanitizeError(txError));
     } else {
       alert(`¡Venta procesada exitosamente! Ticket: ${movementId}`);
       setStep(1);

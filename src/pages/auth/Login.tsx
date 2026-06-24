@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { sanitizeError } from '../../lib/errors';
 import { LayoutDashboard, Shield, ArrowRight, Eye, EyeOff, Wind, BarChart3, Users } from 'lucide-react';
 
 import { useAuthStore } from '../../store/authStore';
@@ -39,7 +40,7 @@ export const Login = () => {
     });
 
     if (error) {
-      setError(error.message);
+      setError(sanitizeError(error));
       setLoading(false);
     }
   };
@@ -53,7 +54,7 @@ export const Login = () => {
     });
     setForgotLoading(false);
     if (error) {
-      setError(error.message);
+      setError(sanitizeError(error));
     } else {
       setForgotSent(true);
     }

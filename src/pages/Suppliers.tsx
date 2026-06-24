@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { sanitizeError } from '../lib/errors';
 import type { Supplier } from '../types';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { Plus, Search, Edit2, Trash2, Globe, Phone, FileText, AlertTriangle, Loader2 } from 'lucide-react';
@@ -95,7 +96,7 @@ export const Suppliers = () => {
         .select();
 
       if (error) {
-        alert('Error al actualizar proveedor: ' + error.message);
+        alert(sanitizeError(error));
       } else if (data) {
         setSuppliers(suppliers.map(s => s.id === editingId ? data[0] : s));
         setIsModalOpen(false);
@@ -107,7 +108,7 @@ export const Suppliers = () => {
         .select();
 
       if (error) {
-        alert('Error al guardar proveedor: ' + error.message);
+        alert(sanitizeError(error));
       } else if (data) {
         setSuppliers([...suppliers, data[0]].sort((a, b) => a.name.localeCompare(b.name)));
         setIsModalOpen(false);
@@ -132,7 +133,7 @@ export const Suppliers = () => {
       .eq('id', supplierToDelete.id);
 
     if (error) {
-      alert('Error al eliminar proveedor: ' + error.message);
+      alert(sanitizeError(error));
     } else {
       setSuppliers(suppliers.filter(s => s.id !== supplierToDelete.id));
       setSupplierToDelete(null);

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { sanitizeError } from '../lib/errors';
 import { useAuthStore } from '../store/authStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import {
@@ -131,7 +132,7 @@ export const Team = () => {
       .insert({ workspace_id: request.workspace_id, user_id: request.user_id, role });
 
     if (memberError) {
-      alert('Error al aceptar: ' + memberError.message);
+      alert(sanitizeError(memberError));
       return;
     }
 
@@ -194,7 +195,7 @@ export const Team = () => {
       .eq('id', memberId);
 
     if (error) {
-      alert('Error actualizando rol: ' + error.message);
+      alert(sanitizeError(error));
       fetchMembers(); // rollback
     }
   };
@@ -211,7 +212,7 @@ export const Team = () => {
       .eq('id', memberId);
 
     if (error) {
-      alert('Error eliminando miembro: ' + error.message);
+      alert(sanitizeError(error));
     } else {
       setMembers(members.filter((m) => m.id !== memberId));
     }

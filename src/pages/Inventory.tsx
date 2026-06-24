@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { sanitizeError } from '../lib/errors';
 import type { Product } from '../types';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { Plus, Search, Edit2, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
@@ -97,7 +98,7 @@ export const Inventory = () => {
 
       if (error) {
         console.error('Error updating product:', error);
-        alert('Error al actualizar producto: ' + error.message);
+        alert(sanitizeError(error));
       } else if (data) {
         setProducts(products.map(p => p.id === editingId ? data[0] : p));
         setIsModalOpen(false);
@@ -120,7 +121,7 @@ export const Inventory = () => {
 
       if (error) {
         console.error('Error saving product:', error);
-        alert('Error al guardar producto: ' + error.message);
+        alert(sanitizeError(error));
       } else if (data) {
         setProducts([data[0], ...products]);
         setIsModalOpen(false);
@@ -155,7 +156,7 @@ export const Inventory = () => {
 
     if (error) {
       console.error('Error deleting product:', error);
-      alert('Error al eliminar producto: ' + error.message);
+      alert(sanitizeError(error));
     } else {
       setProducts(products.filter(p => p.id !== productToDelete.id));
       setProductToDelete(null);

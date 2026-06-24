@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { parseRawList } from '../lib/parser';
+import { sanitizeError } from '../lib/errors';
 import type { ParsedItem } from '../lib/parser';
 import type { Product } from '../types';
 import { useWorkspaceStore } from '../store/workspaceStore';
@@ -84,7 +85,7 @@ export const Purchases = () => {
     if (newProductsToInsert.length > 0) {
       const { data, error } = await supabase.from('products').insert(newProductsToInsert).select();
       if (error) {
-        alert('Error creando nuevos productos: ' + error.message);
+        alert(sanitizeError(error));
         setIsProcessing(false);
         return;
       }
@@ -114,16 +115,22 @@ export const Purchases = () => {
           total_price: item.price * item.quantity,
         });
 
-        // Sum stock (Note: in a real app, an RPC function is better to avoid race conditions)
-        const existingStock = dbProducts.find(p => p.id === productId)?.stock || 0;
-        await supabase.from('products').update({ stock: existingStock + item.quantity }).eq('id', productId);
+        // Sum stock
+        const { data: fresh } = await supabase
+          .from('products')
+          .select('stock')
+          .eq('id', productId)
+          .single();
+        if (fresh) {
+          await supabase.from('products').update({ stock: fresh.stock + item.quantity }).eq('id', productId);
+        }
       }
     }
 
     // 3. Insert transactions
     const { error: txError } = await supabase.from('transactions').insert(transactionsToInsert);
     if (txError) {
-      alert('Error guardando transacciones: ' + txError.message);
+      alert(sanitizeError(txError));
     } else {
       alert(`¡Compra procesada exitosamente! Lote: ${movementId}`);
       setStep(1);

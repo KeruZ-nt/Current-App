@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { sanitizeError } from '../lib/errors';
 import { useAuthStore } from '../store/authStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { Building2, Plus, Users, ArrowRight, Loader2, Pencil, Trash2, LogOut } from 'lucide-react';
@@ -64,7 +65,7 @@ export const Workspaces = () => {
     setActionLoading(true);
     setError(null);
 
-    const generatedCode = 'CRNT-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+    const generatedCode = 'CRNT-' + crypto.randomUUID().split('-')[0].toUpperCase();
 
     const { data: newWs, error: createError } = await supabase
       .from('workspaces')
@@ -77,7 +78,7 @@ export const Workspaces = () => {
       .single();
 
     if (createError) {
-      setError(createError.message);
+      setError(sanitizeError(createError));
       setActionLoading(false);
       return;
     }
@@ -91,7 +92,7 @@ export const Workspaces = () => {
       });
 
     if (memberError) {
-      setError(memberError.message);
+      setError(sanitizeError(memberError));
     } else {
       await refreshData();
       setCreateMode(false);
@@ -207,7 +208,7 @@ export const Workspaces = () => {
       .delete()
       .eq('id', workspaceId);
     if (error) {
-      setError('No se pudo eliminar el almacén: ' + error.message);
+      setError(sanitizeError(error));
     } else {
       await refreshData();
     }
@@ -225,7 +226,7 @@ export const Workspaces = () => {
       .eq('workspace_id', workspaceId)
       .eq('user_id', user.id);
     if (error) {
-      setError('No se pudo salir del almacén: ' + error.message);
+      setError(sanitizeError(error));
     } else {
       await refreshData();
     }
@@ -249,7 +250,7 @@ export const Workspaces = () => {
       .eq('id', workspaceId);
       
     if (error) {
-      setError(error.message);
+      setError(sanitizeError(error));
     } else {
       await refreshData();
       setEditingWorkspaceId(null);

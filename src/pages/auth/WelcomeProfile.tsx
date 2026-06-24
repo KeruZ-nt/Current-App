@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { sanitizeError } from '../../lib/errors';
 import { useAuthStore } from '../../store/authStore';
 import { Camera, User, ArrowRight } from 'lucide-react';
 
@@ -33,7 +34,7 @@ export const WelcomeProfile = () => {
       .upload(filePath, file, { upsert: true });
 
     if (uploadError) {
-      alert('Error subiendo imagen: ' + uploadError.message);
+      alert(sanitizeError(uploadError));
       setLoading(false);
       return;
     }
@@ -59,7 +60,7 @@ export const WelcomeProfile = () => {
       .eq('id', user.id);
 
     if (error) {
-      alert('Error guardando perfil: ' + error.message);
+      alert(sanitizeError(error));
       setLoading(false);
     } else {
       await setUser(user);

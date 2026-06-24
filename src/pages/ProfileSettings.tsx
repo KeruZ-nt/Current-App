@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { sanitizeError } from '../lib/errors';
 import { useAuthStore } from '../store/authStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { Camera, Save, User, Mail, Phone, Shield, X, Trash2, AlertTriangle } from 'lucide-react';
@@ -15,7 +16,7 @@ const DELETE_REASONS = [
 ];
 
 export const ProfileSettings = () => {
-  const { user, profile, setUser, signOut } = useAuthStore();
+  const { user, profile, setUser } = useAuthStore();
   const { clearWorkspaces, activeRole } = useWorkspaceStore();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -24,7 +25,8 @@ export const ProfileSettings = () => {
   const [deleteReason, setDeleteReason] = useState(DELETE_REASONS[0]);
   const [deleteCustomReason, setDeleteCustomReason] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
-  const [deleteError, setDeleteError] = useState(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deletePassword, setDeletePassword] = useState('');
   
   const [formData, setFormData] = useState({
     full_name: '',
@@ -42,25 +44,25 @@ export const ProfileSettings = () => {
     }
   }, [profile]);
 
-  const handleFileChange = async (e) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0 || !user) return;
     const file = e.target.files[0];
     const fileExt = file.name.split('.').pop();
     const filePath = `${user.id}-${Math.random()}.${fileExt}`;
     setLoading(true);
     const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true });
-    if (uploadError) { alert('Error subiendo imagen: ' + uploadError.message); setLoading(false); return; }
+    if (uploadError) { alert(sanitizeError(uploadError)); setLoading(false); return; }
     const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
     setFormData({ ...formData, avatar_url: data.publicUrl });
     setLoading(false);
   };
 
-  const handleSave = async (e) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
     setLoading(true);
     const { error } = await supabase.from('profiles').update({ full_name: formData.full_name, phone: formData.phone, avatar_url: formData.avatar_url }).eq('id', user.id);
-    if (error) { alert('Error guardando perfil: ' + error.message); }
+    if (error) { alert(sanitizeError(error)); }
     else { setShowSuccessModal(true); await setUser(user); setTimeout(() => setShowSuccessModal(false), 3000); }
     setLoading(false);
   };
@@ -69,10 +71,21 @@ export const ProfileSettings = () => {
     if (!user) return;
     setDeleteLoading(true);
     setDeleteError(null);
+
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: user.email!,
+      password: deletePassword,
+    });
+    if (authError) {
+      setDeleteError('Contraseña incorrecta. Intenta de nuevo.');
+      setDeleteLoading(false);
+      return;
+    }
+
     const finalReason = deleteReason === 'Otro motivo' && deleteCustomReason.trim() ? deleteCustomReason.trim() : deleteReason;
     await supabase.from('profiles').update({ deletion_reason: finalReason }).eq('id', user.id);
+    await supabase.auth.signOut();
     clearWorkspaces();
-    await signOut();
     navigate('/login');
   };
 
@@ -107,10 +120,20 @@ export const ProfileSettings = () => {
                 <textarea value={deleteCustomReason} onChange={(e) => setDeleteCustomReason(e.target.value)} placeholder="Cuentanos mas (opcional)..." rows={3} className="flex w-full rounded-xl border border-input bg-background px-3 py-2 text-sm resize-none outline-none focus:ring-2 focus:ring-red-500/50 transition-all" id="delete-custom-reason" />
               )}
             </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Confirma tu contraseña para eliminar</label>
+              <input
+                type="password"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                placeholder="Tu contraseña actual"
+                className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-500/50 transition-all"
+              />
+            </div>
             {deleteError && (<p className="text-sm text-red-500 bg-red-500/10 rounded-lg px-3 py-2">{deleteError}</p>)}
             <div className="flex gap-3 pt-1">
               <button onClick={() => { setShowDeleteModal(false); setDeleteError(null); }} disabled={deleteLoading} className="flex-1 rounded-xl border border-black/10 bg-background px-4 py-2.5 text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50">Cancelar</button>
-              <button onClick={handleDeleteAccount} disabled={deleteLoading} className="flex-1 rounded-xl bg-red-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2" id="confirm-delete-account-btn">
+              <button onClick={handleDeleteAccount} disabled={deleteLoading || !deletePassword} className="flex-1 rounded-xl bg-red-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2" id="confirm-delete-account-btn">
                 {deleteLoading ? <>Eliminando...</> : <><Trash2 className="h-4 w-4" /> Eliminar mi cuenta</>}
               </button>
             </div>

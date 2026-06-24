@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { sanitizeError } from '../../lib/errors';
 import { useAuthStore } from '../../store/authStore';
 import { LayoutDashboard, Shield, ArrowRight, Eye, EyeOff, Wind, BarChart3, Users } from 'lucide-react';
 import { LegalModals, type LegalModalType } from '../../components/auth/LegalModals';
@@ -27,7 +28,7 @@ export const Register = () => {
     });
 
     if (error) {
-      setError(error.message);
+      setError(sanitizeError(error));
       setLoading(false);
     } else if (data.session) {
       const checkAuth = setInterval(() => {
@@ -54,7 +55,7 @@ export const Register = () => {
     });
 
     if (error) {
-      setError(error.message);
+      setError(sanitizeError(error));
       setLoading(false);
     } else {
       navigate('/welcome');
@@ -181,11 +182,11 @@ export const Register = () => {
                       id="password"
                       type={showPassword ? "text" : "password"}
                       required
-                      minLength={6}
+                      minLength={8}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className="flex h-12 w-full rounded-xl border border-input bg-transparent px-4 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/10 transition-all pr-10"
-                      placeholder="Mínimo 6 caracteres"
+                      placeholder="Mínimo 8 caracteres"
                     />
                     <button
                       type="button"
@@ -199,6 +200,7 @@ export const Register = () => {
                       )}
                     </button>
                   </div>
+                  <p className="text-xs text-muted-foreground">Mínimo 8 caracteres, incluye mayúscula, minúscula y número.</p>
                 </div>
               </div>
 

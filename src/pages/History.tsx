@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { sanitizeError } from '../lib/errors';
 import type { Transaction } from '../types';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { Clock, ArrowUpRight, ArrowDownRight, Edit2, Plus, Trash2, Calendar as CalendarIcon, Save, X, Loader2 } from 'lucide-react';
@@ -130,7 +131,7 @@ export const History = () => {
 
     const { error } = await supabase.from('transactions').delete().eq('id', txId);
     if (error) {
-      alert("Error eliminando: " + error.message);
+      alert(sanitizeError(error));
     } else {
       refreshHistory();
     }
@@ -145,7 +146,7 @@ export const History = () => {
       .eq('id', txId);
 
     if (error) {
-      alert("Error actualizando: " + error.message);
+      alert(sanitizeError(error));
     } else {
       setEditingTxId(null);
       refreshHistory();
