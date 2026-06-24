@@ -16,6 +16,12 @@ export const Login = () => {
   const [activeModal, setActiveModal] = useState<LegalModalType>(null);
   const navigate = useNavigate();
 
+  // Forgot password
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
+
   useEffect(() => {
     if (user) {
       navigate('/workspaces');
@@ -35,6 +41,21 @@ export const Login = () => {
     if (error) {
       setError(error.message);
       setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotLoading(true);
+    setError(null);
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setForgotLoading(false);
+    if (error) {
+      setError(error.message);
+    } else {
+      setForgotSent(true);
     }
   };
 
@@ -153,9 +174,13 @@ export const Login = () => {
                   <label className="text-sm font-medium leading-none" htmlFor="password">
                     Contraseña
                   </label>
-                  <Link to="#" className="text-xs font-semibold text-primary hover:underline">
+                  <button
+                    type="button"
+                    onClick={() => { setForgotMode(true); setError(null); setForgotSent(false); setForgotEmail(email); }}
+                    className="text-xs font-semibold text-primary hover:underline"
+                  >
                     ¿Olvidaste tu contraseña?
-                  </Link>
+                  </button>
                 </div>
                 <div className="relative">
                   <input
@@ -191,6 +216,49 @@ export const Login = () => {
             </button>
           </form>
 
+          {/* Forgot Password Modal */}
+          {forgotMode && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setForgotMode(false)} />
+              <div className="relative w-full max-w-sm bg-card rounded-2xl shadow-2xl border border-border p-8 animate-in zoom-in-95 duration-200">
+                {forgotSent ? (
+                  <div className="text-center space-y-4">
+                    <div className="h-14 w-14 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto">
+                      <ArrowRight className="h-7 w-7" />
+                    </div>
+                    <h3 className="text-lg font-bold">Revisa tu correo</h3>
+                    <p className="text-sm text-muted-foreground">Enviamos un enlace de recuperación a <strong className="text-foreground">{forgotEmail}</strong>. Revisa tu bandeja de entrada (y spam).</p>
+                    <button onClick={() => setForgotMode(false)} className="w-full h-11 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">Cerrar</button>
+                  </div>
+                ) : (
+                  <>
+                    <h3 className="text-lg font-bold mb-1">Recuperar contraseña</h3>
+                    <p className="text-sm text-muted-foreground mb-6">Ingresa tu correo y te enviaremos un enlace para resetear tu contraseña.</p>
+                    {error && <p className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2 mb-4">{error}</p>}
+                    <form onSubmit={handleForgotPassword} className="space-y-4">
+                      <input
+                        type="email"
+                        required
+                        value={forgotEmail}
+                        onChange={(e) => setForgotEmail(e.target.value)}
+                        placeholder="tu@correo.com"
+                        className="flex h-12 w-full rounded-xl border border-input bg-transparent px-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/10 transition-all"
+                      />
+                      <button
+                        type="submit"
+                        disabled={forgotLoading}
+                        className="w-full h-11 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                      >
+                        {forgotLoading ? 'Enviando...' : 'Enviar enlace'}
+                      </button>
+                      <button type="button" onClick={() => setForgotMode(false)} className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
+                    </form>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="text-center text-sm text-muted-foreground mt-8">
             ¿Aún no tienes una cuenta?{' '}
             <Link to="/register" className="font-semibold text-primary hover:underline transition-all">
@@ -203,7 +271,6 @@ export const Login = () => {
           <div className="mt-8 flex justify-center gap-6 text-xs text-muted-foreground font-light">
             <button type="button" onClick={() => setActiveModal('privacy')} className="hover:text-primary transition-colors">Privacidad</button>
             <button type="button" onClick={() => setActiveModal('terms')} className="hover:text-primary transition-colors">Términos</button>
-            <button type="button" onClick={() => setActiveModal('support')} className="hover:text-primary transition-colors">Soporte</button>
           </div>
         </div>
       </div>

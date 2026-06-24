@@ -267,7 +267,6 @@ export const Register = () => {
           <div className="mt-8 flex justify-center gap-6 text-xs text-muted-foreground font-light">
             <button type="button" onClick={() => setActiveModal('privacy')} className="hover:text-primary transition-colors">Privacidad</button>
             <button type="button" onClick={() => setActiveModal('terms')} className="hover:text-primary transition-colors">Términos</button>
-            <button type="button" onClick={() => setActiveModal('support')} className="hover:text-primary transition-colors">Soporte</button>
           </div>
         </div>
       </div>
