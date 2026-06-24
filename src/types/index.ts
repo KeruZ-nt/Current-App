@@ -53,6 +53,28 @@ export interface WorkspaceMember {
   workspace?: Workspace;
 }
 
+export interface AccessRequest {
+  id: string;
+  workspace_id: string;
+  user_id: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  created_at?: string;
+  // Relacional
+  profile?: Profile;
+  workspace?: Workspace;
+}
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: 'access_request' | 'access_accepted' | 'access_rejected';
+  title: string;
+  message: string;
+  data: Record<string, any>;
+  read: boolean;
+  created_at?: string;
+}
+
 export interface Supplier {
   id: string;
   name: string;

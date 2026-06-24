@@ -2,12 +2,16 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
-import { ShieldAlert, User, Check, Trash2, ShieldCheck, Loader2 } from 'lucide-react';
+import {
+  ShieldAlert, User, Check, Trash2, ShieldCheck, Loader2,
+  UserCheck, UserX, Clock, ChevronDown
+} from 'lucide-react';
+import type { AccessRequest } from '../types';
 
 /**
  * Componente Team
  * Permite a los administradores visualizar y gestionar los miembros del almacén activo.
- * Funcionalidades: ver miembros, invitar mediante código, cambiar roles y eliminar usuarios.
+ * Funcionalidades: ver miembros, ver solicitudes pendientes, aceptar/rechazar con rol, cambiar roles y eliminar usuarios.
  */
 
 export const Team = () => {
@@ -15,7 +19,11 @@ export const Team = () => {
   const { activeWorkspace, activeRole } = useWorkspaceStore();
 
   const [members, setMembers] = useState<any[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<AccessRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [requestsLoading, setRequestsLoading] = useState(false);
+  // role selection per request id
+  const [requestRoles, setRequestRoles] = useState<Record<string, 'admin' | 'collaborator'>>({});
 
   const fetchMembers = async () => {
     if (!activeWorkspace) return;
@@ -60,11 +68,116 @@ export const Team = () => {
     setLoading(false);
   };
 
+  const fetchPendingRequests = async () => {
+    if (!activeWorkspace) return;
+    setRequestsLoading(true);
+
+    const { data: requestsData, error } = await supabase
+      .from('access_requests')
+      .select('*')
+      .eq('workspace_id', activeWorkspace.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+
+    if (error || !requestsData) {
+      setRequestsLoading(false);
+      return;
+    }
+
+    if (requestsData.length === 0) {
+      setPendingRequests([]);
+      setRequestsLoading(false);
+      return;
+    }
+
+    // Fetch profiles for requesters
+    const requesterIds = requestsData.map((r) => r.user_id);
+    const { data: profilesData } = await supabase
+      .from('profiles')
+      .select('*')
+      .in('id', requesterIds);
+
+    const merged = requestsData.map((r) => ({
+      ...r,
+      profile: profilesData?.find((p) => p.id === r.user_id) ?? null,
+    }));
+
+    setPendingRequests(merged as AccessRequest[]);
+
+    // Initialize default roles
+    const defaultRoles: Record<string, 'admin' | 'collaborator'> = {};
+    requestsData.forEach((r) => { defaultRoles[r.id] = 'collaborator'; });
+    setRequestRoles((prev) => ({ ...defaultRoles, ...prev }));
+
+    setRequestsLoading(false);
+  };
+
   useEffect(() => {
     if (activeWorkspace) {
       fetchMembers();
+      if (activeRole === 'admin') fetchPendingRequests();
     }
   }, [activeWorkspace]);
+
+  /**
+   * Acepta una solicitud: inserta en workspace_members y notifica al usuario.
+   */
+  const handleAcceptRequest = async (request: AccessRequest) => {
+    const role = requestRoles[request.id] ?? 'collaborator';
+
+    // Insert as member
+    const { error: memberError } = await supabase
+      .from('workspace_members')
+      .insert({ workspace_id: request.workspace_id, user_id: request.user_id, role });
+
+    if (memberError) {
+      alert('Error al aceptar: ' + memberError.message);
+      return;
+    }
+
+    // Update request status
+    await supabase
+      .from('access_requests')
+      .update({ status: 'accepted' })
+      .eq('id', request.id);
+
+    // Notify the user
+    const workspaceName = activeWorkspace?.name ?? 'el almacén';
+    const rolLabel = role === 'admin' ? 'Administrador' : 'Colaborador';
+    await supabase.from('notifications').insert({
+      user_id: request.user_id,
+      type: 'access_accepted',
+      title: '¡Acceso aprobado! 🎉',
+      message: `Tu solicitud para unirte a "${workspaceName}" fue aceptada. Tu rol es: ${rolLabel}.`,
+      data: { workspace_id: request.workspace_id, workspace_name: workspaceName, role },
+      read: false,
+    });
+
+    // Refresh
+    await Promise.all([fetchMembers(), fetchPendingRequests()]);
+  };
+
+  /**
+   * Rechaza una solicitud y notifica al usuario.
+   */
+  const handleRejectRequest = async (request: AccessRequest) => {
+    await supabase
+      .from('access_requests')
+      .update({ status: 'rejected' })
+      .eq('id', request.id);
+
+    const workspaceName = activeWorkspace?.name ?? 'el almacén';
+    await supabase.from('notifications').insert({
+      user_id: request.user_id,
+      type: 'access_rejected',
+      title: 'Solicitud rechazada',
+      message: `Tu solicitud para unirte a "${workspaceName}" fue rechazada por el administrador.`,
+      data: { workspace_id: request.workspace_id, workspace_name: workspaceName },
+      read: false,
+    });
+
+    setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
+  };
 
   /**
    * Actualiza el rol de un miembro específico (admin o colaborador).
@@ -141,6 +254,91 @@ export const Team = () => {
         )}
       </div>
 
+      {/* Pending Requests Section */}
+      {(requestsLoading || pendingRequests.length > 0) && (
+        <div className="rounded-2xl glass overflow-hidden shadow-xl border border-amber-500/20">
+          <div className="flex items-center gap-2 px-5 py-3.5 bg-amber-500/5 border-b border-amber-500/10">
+            <Clock className="h-4 w-4 text-amber-500" />
+            <span className="text-sm font-semibold text-amber-600">
+              Solicitudes de Acceso Pendientes
+            </span>
+            <span className="ml-auto rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-bold text-amber-600">
+              {pendingRequests.length}
+            </span>
+          </div>
+
+          {requestsLoading ? (
+            <div className="flex items-center justify-center gap-2 p-8 text-muted-foreground animate-pulse">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span className="text-sm">Cargando solicitudes...</span>
+            </div>
+          ) : (
+            <div className="divide-y divide-black/5">
+              {pendingRequests.map((req) => (
+                <div key={req.id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 hover:bg-black/[0.02] transition-colors">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full border border-black/10 bg-black/5 overflow-hidden shrink-0">
+                      {(req as any).profile?.avatar_url ? (
+                        <img src={(req as any).profile.avatar_url} alt="Avatar" className="h-full w-full object-cover" />
+                      ) : (
+                        <User className="h-5 w-5 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate">
+                        {(req as any).profile?.full_name || (req as any).profile?.email || req.user_id}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">{(req as any).profile?.email}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {/* Role selector */}
+                    <div className="relative">
+                      <select
+                        value={requestRoles[req.id] ?? 'collaborator'}
+                        onChange={(e) =>
+                          setRequestRoles((prev) => ({
+                            ...prev,
+                            [req.id]: e.target.value as 'admin' | 'collaborator',
+                          }))
+                        }
+                        className="appearance-none h-9 rounded-xl border border-black/10 bg-background/80 pl-3 pr-7 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all cursor-pointer"
+                      >
+                        <option value="collaborator">Colaborador</option>
+                        <option value="admin">Administrador</option>
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    </div>
+
+                    {/* Accept */}
+                    <button
+                      onClick={() => handleAcceptRequest(req)}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-500/20 transition-colors border border-emerald-500/20"
+                      title="Aceptar solicitud"
+                    >
+                      <UserCheck className="h-3.5 w-3.5" />
+                      Aceptar
+                    </button>
+
+                    {/* Reject */}
+                    <button
+                      onClick={() => handleRejectRequest(req)}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-500 hover:bg-red-500/20 transition-colors border border-red-500/20"
+                      title="Rechazar solicitud"
+                    >
+                      <UserX className="h-3.5 w-3.5" />
+                      Rechazar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Members Table */}
       <div className="rounded-2xl glass overflow-hidden shadow-2xl relative">
         <div className="relative w-full overflow-auto">
           <table className="w-full caption-bottom text-sm min-w-[700px]">
@@ -228,3 +426,4 @@ export const Team = () => {
     </div>
   );
 };
+

@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { User, LogOut, Building2, Repeat, Menu } from 'lucide-react';
+import { NotificationBell } from './NotificationBell';
 
 interface HeaderProps {
   hideLogo?: boolean;
@@ -69,6 +70,9 @@ export const Header = ({ hideLogo = false, onMenuClick }: HeaderProps) => {
         )}
       </div>
 
+      <div className="flex items-center gap-1">
+        <NotificationBell />
+
       <div className="relative" ref={dropdownRef}>
         <button
           onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -126,6 +130,7 @@ export const Header = ({ hideLogo = false, onMenuClick }: HeaderProps) => {
             </div>
           </div>
         )}
+      </div>
       </div>
     </header>
   );

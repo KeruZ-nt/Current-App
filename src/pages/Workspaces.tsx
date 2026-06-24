@@ -109,8 +109,8 @@ export const Workspaces = () => {
     // 1. Find workspace by code
     const { data: wsData, error: wsError } = await supabase
       .from('workspaces')
-      .select('id')
-      .eq('invite_code', inviteCode)
+      .select('id, name')
+      .eq('invite_code', inviteCode.trim().toUpperCase())
       .single();
 
     if (wsError || !wsData) {
@@ -119,28 +119,77 @@ export const Workspaces = () => {
       return;
     }
 
-    // 2. Join as collaborator
-    const { error: joinError } = await supabase
+    // 2. Check if already a member
+    const { data: existingMember } = await supabase
       .from('workspace_members')
-      .insert({
-        workspace_id: wsData.id,
-        user_id: user.id,
-        role: 'collaborator'
-      });
+      .select('id')
+      .eq('workspace_id', wsData.id)
+      .eq('user_id', user.id)
+      .single();
 
-    if (joinError) {
-      if (joinError.code === '23505') {
-        setError('Ya eres miembro de este almacén.');
-      } else {
-        setError(joinError.message);
-      }
-    } else {
-      await refreshData();
-      setJoinMode(false);
-      setInviteCode('');
+    if (existingMember) {
+      setError('Ya eres miembro de este almacén.');
+      setActionLoading(false);
+      return;
     }
+
+    // 3. Check if already has a pending request
+    const { data: existingRequest } = await supabase
+      .from('access_requests')
+      .select('id, status')
+      .eq('workspace_id', wsData.id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (existingRequest) {
+      if (existingRequest.status === 'pending') {
+        setError('Ya tienes una solicitud pendiente para este almacén. Espera la aprobación del administrador.');
+      } else if (existingRequest.status === 'rejected') {
+        setError('Tu solicitud fue rechazada. Contacta al administrador del almacén.');
+      }
+      setActionLoading(false);
+      return;
+    }
+
+    // 4. Create access request
+    const { error: reqError } = await supabase
+      .from('access_requests')
+      .insert({ workspace_id: wsData.id, user_id: user.id, status: 'pending' });
+
+    if (reqError) {
+      setError(reqError.message);
+      setActionLoading(false);
+      return;
+    }
+
+    // 5. Notify workspace admins
+    const { data: admins } = await supabase
+      .from('workspace_members')
+      .select('user_id')
+      .eq('workspace_id', wsData.id)
+      .eq('role', 'admin');
+
+    if (admins && admins.length > 0) {
+      const userName = profile?.full_name || profile?.email || user.email || 'Un usuario';
+      const notifications = admins.map((admin) => ({
+        user_id: admin.user_id,
+        type: 'access_request',
+        title: 'Nueva solicitud de acceso',
+        message: `${userName} quiere unirse al almacén "${wsData.name}".`,
+        data: { workspace_id: wsData.id, workspace_name: wsData.name, requester_id: user.id },
+        read: false,
+      }));
+      await supabase.from('notifications').insert(notifications);
+    }
+
+    setJoinMode(false);
+    setInviteCode('');
+    setError(null);
+    // Show success feedback via a temporary message
+    alert('✅ Solicitud enviada. El administrador revisará tu acceso y recibirás una notificación con el resultado.');
     setActionLoading(false);
   };
+
 
   const handleSelectWorkspace = (workspace: any) => {
     // Si estamos editando, no queremos que el click seleccione el almacén
