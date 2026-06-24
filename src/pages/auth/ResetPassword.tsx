@@ -13,17 +13,15 @@ export const ResetPassword = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  // Check if we actually have an active session (user clicked email link)
   useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        // If they just navigated here manually without a token, redirect to login
-        navigate('/login');
+    // Escuchar cambios de estado para asegurar que el token se ha procesado
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        // Todo listo para cambiar la clave
       }
-    };
-    checkSession();
-  }, [navigate]);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
