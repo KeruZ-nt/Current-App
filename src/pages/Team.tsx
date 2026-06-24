@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
-import { ShieldAlert, User, Check, Trash2, ShieldCheck, Loader2 } from 'lucide-react';
+import { ShieldAlert, User, Check, Trash2, ShieldCheck, Loader2, Mail, Send, CheckCircle } from 'lucide-react';
 
 /**
  * Componente Team
@@ -11,10 +11,17 @@ import { ShieldAlert, User, Check, Trash2, ShieldCheck, Loader2 } from 'lucide-r
  */
 
 export const Team = () => {
-  const { profile } = useAuthStore();
+  const { user, profile } = useAuthStore();
   const { activeWorkspace, activeRole } = useWorkspaceStore();
+
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Invite by email
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteSending, setInviteSending] = useState(false);
+  const [inviteSent, setInviteSent] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
   
   useEffect(() => {
     /**
@@ -100,6 +107,34 @@ export const Team = () => {
     }
   };
 
+  const handleSendInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeWorkspace?.invite_code || !inviteEmail) return;
+    setInviteSending(true);
+    setInviteError(null);
+    try {
+      const res = await fetch('/api/send-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: inviteEmail,
+          workspaceName: activeWorkspace.name,
+          inviteCode: activeWorkspace.invite_code,
+          senderName: profile?.full_name || user?.email,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al enviar');
+      setInviteSent(true);
+      setInviteEmail('');
+      setTimeout(() => setInviteSent(false), 4000);
+    } catch (err: any) {
+      setInviteError(err.message);
+    } finally {
+      setInviteSending(false);
+    }
+  };
+
   if (activeRole !== 'admin') {
     return (
       <div className="flex h-[80vh] flex-col items-center justify-center text-center">
@@ -119,20 +154,45 @@ export const Team = () => {
         </div>
         
         {activeWorkspace?.invite_code && (
-          <div className="flex items-center gap-2 rounded-2xl glass p-2 shadow-xl border border-black/10">
-            <div className="flex flex-col px-3">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Código de Invitación</span>
-              <span className="font-mono text-lg font-bold tracking-widest text-indigo-400">{activeWorkspace.invite_code}</span>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2 rounded-2xl glass p-2 shadow-xl border border-black/10">
+              <div className="flex flex-col px-3">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Código de Invitación</span>
+                <span className="font-mono text-lg font-bold tracking-widest text-indigo-400">{activeWorkspace.invite_code}</span>
+              </div>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(activeWorkspace.invite_code);
+                  alert('¡Código copiado al portapapeles!');
+                }}
+                className="flex h-10 items-center justify-center rounded-xl bg-indigo-500/10 px-4 text-sm font-medium text-indigo-400 hover:bg-indigo-500/20 transition-colors"
+              >
+                Copiar
+              </button>
             </div>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(activeWorkspace.invite_code);
-                alert('¡Código copiado al portapapeles!');
-              }}
-              className="flex h-10 items-center justify-center rounded-xl bg-indigo-500/10 px-4 text-sm font-medium text-indigo-400 hover:bg-indigo-500/20 transition-colors"
-            >
-              Copiar
-            </button>
+            {/* Send invite by email */}
+            <form onSubmit={handleSendInvite} className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="email"
+                  required
+                  value={inviteEmail}
+                  onChange={e => { setInviteEmail(e.target.value); setInviteError(null); setInviteSent(false); }}
+                  placeholder="Invitar por correo..."
+                  className="flex h-10 w-full rounded-xl border border-black/10 bg-background/80 pl-9 pr-3 text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={inviteSending}
+                className="flex h-10 items-center gap-1.5 rounded-xl bg-indigo-500 px-4 text-sm font-semibold text-white hover:bg-indigo-400 transition-colors disabled:opacity-60"
+              >
+                {inviteSending ? <Loader2 className="h-4 w-4 animate-spin" /> : inviteSent ? <CheckCircle className="h-4 w-4" /> : <Send className="h-4 w-4" />}
+                {inviteSent ? '¡Enviado!' : 'Enviar'}
+              </button>
+            </form>
+            {inviteError && <p className="text-xs text-destructive">{inviteError}</p>}
           </div>
         )}
       </div>

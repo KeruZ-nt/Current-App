@@ -1,4 +1,5 @@
-import { X, Shield, FileText, LifeBuoy } from 'lucide-react';
+import { useState } from 'react';
+import { X, Shield, FileText, LifeBuoy, Send, CheckCircle, Loader2 } from 'lucide-react';
 
 export type LegalModalType = 'privacy' | 'terms' | 'support' | null;
 
@@ -8,7 +9,34 @@ interface LegalModalsProps {
 }
 
 export const LegalModals = ({ activeModal, onClose }: LegalModalsProps) => {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+
   if (!activeModal) return null;
+
+  const handleSupportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSending(true);
+    setSendError(null);
+    try {
+      const res = await fetch('/api/send-support', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, message }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al enviar');
+      setSent(true);
+    } catch (err: any) {
+      setSendError(err.message);
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
@@ -80,29 +108,83 @@ export const LegalModals = ({ activeModal, onClose }: LegalModalsProps) => {
 
           {activeModal === 'support' && (
             <>
-              <div className="flex flex-col items-center text-center py-6">
-                <div className="h-16 w-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-4">
-                  <LifeBuoy className="h-8 w-8" />
+              {sent ? (
+                <div className="flex flex-col items-center justify-center text-center py-12 gap-4">
+                  <div className="h-16 w-16 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center">
+                    <CheckCircle className="h-8 w-8" />
+                  </div>
+                  <h3 className="text-xl font-bold text-foreground">¡Mensaje enviado!</h3>
+                  <p className="text-muted-foreground max-w-sm">Hemos recibido tu mensaje y te responderemos a la brevedad posible. Revisa tu bandeja de entrada.</p>
+                  <button
+                    onClick={() => { setSent(false); setName(''); setEmail(''); setMessage(''); }}
+                    className="text-sm text-primary hover:underline mt-2"
+                  >
+                    Enviar otro mensaje
+                  </button>
                 </div>
-                <h3 className="text-xl font-bold text-foreground">¿Necesitas ayuda con Current?</h3>
-                <p className="mt-2 text-muted-foreground max-w-md">Nuestro equipo de soporte está dedicado a garantizar que tu flujo de trabajo no sufra interrupciones. Estamos aquí para ti 24/7.</p>
-              </div>
+              ) : (
+                <>
+                  <div className="flex flex-col items-center text-center py-4 mb-2">
+                    <div className="h-14 w-14 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-3">
+                      <LifeBuoy className="h-7 w-7" />
+                    </div>
+                    <h3 className="text-lg font-bold text-foreground">¿Necesitas ayuda con Current?</h3>
+                    <p className="mt-1 text-muted-foreground text-sm max-w-md">Envíanos un mensaje y nuestro equipo te responderá a la brevedad.</p>
+                  </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-                <div className="border rounded-xl p-5 bg-card hover:bg-muted/30 transition-colors">
-                  <h4 className="font-bold text-foreground flex items-center gap-2"><FileText className="h-4 w-4" /> Centro de Ayuda</h4>
-                  <p className="text-sm mt-2">Consulta nuestras guías detalladas, tutoriales y preguntas frecuentes para resolver dudas rápidas.</p>
-                </div>
-                <div className="border rounded-xl p-5 bg-card hover:bg-muted/30 transition-colors">
-                  <h4 className="font-bold text-foreground flex items-center gap-2"><LifeBuoy className="h-4 w-4" /> Soporte en Vivo</h4>
-                  <p className="text-sm mt-2">¿Un problema crítico? Contáctanos a través de nuestro chat de soporte o envíanos un correo directamente.</p>
-                </div>
-              </div>
-
-              <div className="mt-8 bg-muted/50 p-4 rounded-lg text-center border">
-                <p className="font-medium text-foreground">Contacto Directo</p>
-                <a href="mailto:soporte@current.com" className="text-primary hover:underline font-semibold mt-1 inline-block">soporte@current.com</a>
-              </div>
+                  <form onSubmit={handleSupportSubmit} className="space-y-4 mt-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider">Nombre</label>
+                        <input
+                          type="text"
+                          required
+                          value={name}
+                          onChange={e => setName(e.target.value)}
+                          placeholder="Tu nombre"
+                          className="flex h-10 w-full rounded-xl border border-black/10 bg-background/80 px-3 py-2 text-sm focus:ring-2 focus:ring-primary/40 outline-none transition-all"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider">Correo de respuesta</label>
+                        <input
+                          type="email"
+                          required
+                          value={email}
+                          onChange={e => setEmail(e.target.value)}
+                          placeholder="tu@correo.com"
+                          className="flex h-10 w-full rounded-xl border border-black/10 bg-background/80 px-3 py-2 text-sm focus:ring-2 focus:ring-primary/40 outline-none transition-all"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-foreground uppercase tracking-wider">¿En qué podemos ayudarte?</label>
+                      <textarea
+                        required
+                        rows={4}
+                        value={message}
+                        onChange={e => setMessage(e.target.value)}
+                        placeholder="Describe tu problema o pregunta con el mayor detalle posible..."
+                        className="flex w-full rounded-xl border border-black/10 bg-background/80 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/40 outline-none transition-all resize-none"
+                      />
+                    </div>
+                    {sendError && (
+                      <p className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">{sendError}</p>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={sending}
+                      className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 py-2.5 text-sm font-semibold text-white hover:opacity-90 transition-all hover:shadow-lg hover:shadow-sky-500/25 disabled:opacity-50"
+                    >
+                      {sending ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" /> Enviando...</>
+                      ) : (
+                        <><Send className="h-4 w-4" /> Enviar mensaje</>
+                      )}
+                    </button>
+                  </form>
+                </>
+              )}
             </>
           )}
         </div>
@@ -113,7 +195,7 @@ export const LegalModals = ({ activeModal, onClose }: LegalModalsProps) => {
             onClick={onClose}
             className="px-6 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:bg-primary/90 transition-colors"
           >
-            Entendido
+            Cerrar
           </button>
         </div>
       </div>
