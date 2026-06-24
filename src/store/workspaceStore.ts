@@ -16,7 +16,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   activeWorkspace: null,
   activeRole: null,
   workspaces: [],
-  loading: true,
+  loading: false,
   setActiveWorkspace: (workspace) => {
     set((state) => {
       const member = state.workspaces.find(w => w.workspace_id === workspace?.id);
