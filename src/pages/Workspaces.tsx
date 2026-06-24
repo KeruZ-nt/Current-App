@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { sanitizeError } from '../lib/errors';
 import { useAuthStore } from '../store/authStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
-import { Building2, Plus, Users, ArrowRight, Loader2, Pencil, Trash2, LogOut } from 'lucide-react';
+import { Building2, Plus, Users, ArrowRight, Loader2, Pencil, Trash2, LogOut, AlertTriangle } from 'lucide-react';
 
 export const Workspaces = () => {
   const { user, profile } = useAuthStore();
@@ -27,6 +27,13 @@ export const Workspaces = () => {
   // Edit form
   const [editingWorkspaceId, setEditingWorkspaceId] = useState<string | null>(null);
   const [editingWorkspaceName, setEditingWorkspaceName] = useState('');
+
+  // Confirm modal
+  const [confirmModal, setConfirmModal] = useState<{
+    type: 'leave' | 'delete';
+    workspaceId: string;
+    workspaceName: string;
+  } | null>(null);
 
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -201,34 +208,42 @@ export const Workspaces = () => {
 
   const handleDeleteWorkspace = async (e: React.MouseEvent, workspaceId: string, workspaceName: string) => {
     e.stopPropagation();
-    if (!window.confirm(`¿Estás seguro de que quieres eliminar el almacén "${workspaceName}"? Esta acción no se puede deshacer.`)) return;
-    setActionLoading(true);
-    const { error } = await supabase
-      .from('workspaces')
-      .delete()
-      .eq('id', workspaceId);
-    if (error) {
-      setError(sanitizeError(error));
-    } else {
-      await refreshData();
-    }
-    setActionLoading(false);
+    setConfirmModal({ type: 'delete', workspaceId, workspaceName });
   };
 
   const handleLeaveWorkspace = async (e: React.MouseEvent, workspaceId: string, workspaceName: string) => {
     e.stopPropagation();
-    if (!window.confirm(`¿Estás seguro de que quieres salir del almacén "${workspaceName}"?`)) return;
-    if (!user) return;
+    setConfirmModal({ type: 'leave', workspaceId, workspaceName });
+  };
+
+  const executeConfirm = async () => {
+    if (!confirmModal || !user) return;
+    const { type, workspaceId } = confirmModal;
+    setConfirmModal(null);
     setActionLoading(true);
-    const { error } = await supabase
-      .from('workspace_members')
-      .delete()
-      .eq('workspace_id', workspaceId)
-      .eq('user_id', user.id);
-    if (error) {
-      setError(sanitizeError(error));
+    setError(null);
+
+    if (type === 'delete') {
+      const { error } = await supabase
+        .from('workspaces')
+        .delete()
+        .eq('id', workspaceId);
+      if (error) {
+        setError(sanitizeError(error));
+      } else {
+        await refreshData();
+      }
     } else {
-      await refreshData();
+      const { error } = await supabase
+        .from('workspace_members')
+        .delete()
+        .eq('workspace_id', workspaceId)
+        .eq('user_id', user.id);
+      if (error) {
+        setError(sanitizeError(error));
+      } else {
+        await refreshData();
+      }
     }
     setActionLoading(false);
   };
@@ -474,6 +489,57 @@ export const Workspaces = () => {
                     <p className="text-sm mt-1">Haz clic en <strong>Agregar Almacén</strong> para empezar.</p>
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Confirm Modal */}
+        {confirmModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm animate-in fade-in duration-200 p-4">
+            <div className="w-full max-w-md rounded-2xl glass border-black/10 p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+              <div className="flex flex-col items-center gap-4 text-center">
+                <div className={`flex h-16 w-16 items-center justify-center rounded-full border ${
+                  confirmModal.type === 'delete'
+                    ? 'bg-destructive/10 border-destructive/20 text-destructive'
+                    : 'bg-orange-500/10 border-orange-500/20 text-orange-500'
+                }`}>
+                  <AlertTriangle className="h-8 w-8" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold">
+                    {confirmModal.type === 'delete' ? 'Eliminar almacén' : 'Salir del almacén'}
+                  </h2>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {confirmModal.type === 'delete' ? (
+                      <>Estás a punto de eliminar <strong className="text-foreground">{confirmModal.workspaceName}</strong>. Esta acción no se puede deshacer.</>
+                    ) : (
+                      <>¿Estás seguro de que quieres salir de <strong className="text-foreground">{confirmModal.workspaceName}</strong>?</>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-6 flex justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setConfirmModal(null)}
+                  disabled={actionLoading}
+                  className="rounded-xl border border-black/10 bg-black/5 px-4 py-2 text-sm font-medium hover:bg-black/10 transition-colors disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={executeConfirm}
+                  disabled={actionLoading}
+                  className={`rounded-xl px-4 py-2 text-sm font-medium text-white transition-all disabled:opacity-50 ${
+                    confirmModal.type === 'delete'
+                      ? 'bg-destructive hover:bg-destructive/90 hover:shadow-lg hover:shadow-destructive/25'
+                      : 'bg-orange-500 hover:bg-orange-600 hover:shadow-lg hover:shadow-orange-500/25'
+                  }`}
+                >
+                  {actionLoading ? 'Procesando...' : confirmModal.type === 'delete' ? 'Sí, eliminar' : 'Sí, salir'}
+                </button>
               </div>
             </div>
           </div>
