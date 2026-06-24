@@ -421,7 +421,7 @@ export const Workspaces = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      {member.role === 'admin' ? (
+                      {member.workspace.created_by === user?.id ? (
                         <button
                           onClick={(e) => handleDeleteWorkspace(e, member.workspace.id, member.workspace.name)}
                           disabled={actionLoading}

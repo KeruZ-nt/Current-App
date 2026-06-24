@@ -58,7 +58,7 @@ export const Notifications = () => {
     fetchNotifications(user.id).then(() => setLoading(false));
     const unsub = subscribeToNotifications(user.id);
     return unsub;
-  }, [user]);
+  }, [user, fetchNotifications, subscribeToNotifications]);
 
   const handleMarkAll = async () => {
     if (!user) return;

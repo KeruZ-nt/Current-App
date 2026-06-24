@@ -110,7 +110,8 @@ export const Team = () => {
       fetchMembers();
       if (activeRole === 'admin') fetchPendingRequests();
     }
-  }, [activeWorkspace]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeWorkspace, activeRole]);
 
   const handleAcceptRequest = async (request: AccessRequest) => {
     const role = requestRoles[request.id] ?? 'collaborator';

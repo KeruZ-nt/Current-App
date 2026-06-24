@@ -53,7 +53,7 @@ export const NotificationBell = () => {
     fetchNotifications(user.id);
     const unsub = subscribeToNotifications(user.id);
     return unsub;
-  }, [user]);
+  }, [user, fetchNotifications, subscribeToNotifications]);
 
   // Close on outside click
   useEffect(() => {
