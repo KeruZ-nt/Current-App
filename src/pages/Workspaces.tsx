@@ -216,36 +216,23 @@ export const Workspaces = () => {
     setConfirmModal({ type: 'leave', workspaceId, workspaceName });
   };
 
-  const executeConfirm = async () => {
-    if (!confirmModal || !user) return;
-    const { type, workspaceId } = confirmModal;
-    setConfirmModal(null);
+  const executeConfirm = async (type: 'leave' | 'delete', workspaceId: string) => {
+    if (!user) return;
     setActionLoading(true);
     setError(null);
 
-    if (type === 'delete') {
-      const { error } = await supabase
-        .from('workspaces')
-        .delete()
-        .eq('id', workspaceId);
-      if (error) {
-        setError(sanitizeError(error));
-      } else {
-        await refreshData();
-      }
+    const { error } = type === 'delete'
+      ? await supabase.from('workspaces').delete().eq('id', workspaceId)
+      : await supabase.from('workspace_members').delete().eq('workspace_id', workspaceId).eq('user_id', user.id);
+
+    if (error) {
+      setError(sanitizeError(error));
+      setActionLoading(false);
     } else {
-      const { error } = await supabase
-        .from('workspace_members')
-        .delete()
-        .eq('workspace_id', workspaceId)
-        .eq('user_id', user.id);
-      if (error) {
-        setError(sanitizeError(error));
-      } else {
-        await refreshData();
-      }
+      setConfirmModal(null);
+      setActionLoading(false);
+      await refreshData();
     }
-    setActionLoading(false);
   };
 
   const handleStartEdit = (e: React.MouseEvent, workspace: any) => {
@@ -530,7 +517,7 @@ export const Workspaces = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={executeConfirm}
+                  onClick={() => executeConfirm(confirmModal.type, confirmModal.workspaceId)}
                   disabled={actionLoading}
                   className={`rounded-xl px-4 py-2 text-sm font-medium text-white transition-all disabled:opacity-50 ${
                     confirmModal.type === 'delete'
