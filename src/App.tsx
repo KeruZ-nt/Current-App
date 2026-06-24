@@ -33,10 +33,14 @@ function App() {
     });
 
     // Listen for changes on auth state (log in, log out, etc.)
+    // We ignore TOKEN_REFRESHED / INITIAL_SESSION to prevent unnecessary
+    // re-fetches when the tab regains focus in the background.
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+        setUser(session?.user ?? null);
+      }
     });
 
     return () => subscription.unsubscribe();

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
-import { Building2, Plus, Users, ArrowRight, Loader2, Pencil } from 'lucide-react';
+import { Building2, Plus, Users, ArrowRight, Loader2, Pencil, Trash2, LogOut } from 'lucide-react';
 
 export const Workspaces = () => {
   const { user, profile } = useAuthStore();
@@ -147,6 +147,40 @@ export const Workspaces = () => {
     if (editingWorkspaceId === workspace.id) return;
     setActiveWorkspace(workspace);
     navigate('/');
+  };
+
+  const handleDeleteWorkspace = async (e: React.MouseEvent, workspaceId: string, workspaceName: string) => {
+    e.stopPropagation();
+    if (!window.confirm(`¿Estás seguro de que quieres eliminar el almacén "${workspaceName}"? Esta acción no se puede deshacer.`)) return;
+    setActionLoading(true);
+    const { error } = await supabase
+      .from('workspaces')
+      .delete()
+      .eq('id', workspaceId);
+    if (error) {
+      setError('No se pudo eliminar el almacén: ' + error.message);
+    } else {
+      await refreshData();
+    }
+    setActionLoading(false);
+  };
+
+  const handleLeaveWorkspace = async (e: React.MouseEvent, workspaceId: string, workspaceName: string) => {
+    e.stopPropagation();
+    if (!window.confirm(`¿Estás seguro de que quieres salir del almacén "${workspaceName}"?`)) return;
+    if (!user) return;
+    setActionLoading(true);
+    const { error } = await supabase
+      .from('workspace_members')
+      .delete()
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', user.id);
+    if (error) {
+      setError('No se pudo salir del almacén: ' + error.message);
+    } else {
+      await refreshData();
+    }
+    setActionLoading(false);
   };
 
   const handleStartEdit = (e: React.MouseEvent, workspace: any) => {
@@ -360,7 +394,28 @@ export const Workspaces = () => {
                         </span>
                       </div>
                     </div>
-                    <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-muted-foreground sm:opacity-0 group-hover:opacity-100 transition-all sm:-translate-x-4 group-hover:translate-x-0 duration-300" />
+                    <div className="flex items-center gap-1 shrink-0">
+                      {member.role === 'admin' ? (
+                        <button
+                          onClick={(e) => handleDeleteWorkspace(e, member.workspace.id, member.workspace.name)}
+                          disabled={actionLoading}
+                          title="Eliminar almacén"
+                          className="p-2 rounded-lg text-muted-foreground sm:opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-red-500/10 transition-all duration-200 disabled:opacity-30"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={(e) => handleLeaveWorkspace(e, member.workspace.id, member.workspace.name)}
+                          disabled={actionLoading}
+                          title="Salir del almacén"
+                          className="p-2 rounded-lg text-muted-foreground sm:opacity-0 group-hover:opacity-100 hover:text-orange-500 hover:bg-orange-500/10 transition-all duration-200 disabled:opacity-30"
+                        >
+                          <LogOut className="h-4 w-4" />
+                        </button>
+                      )}
+                      <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground sm:opacity-0 group-hover:opacity-100 transition-all sm:-translate-x-4 group-hover:translate-x-0 duration-300" />
+                    </div>
                   </button>
                 )) : (
                   <div className="p-8 text-center text-muted-foreground">
