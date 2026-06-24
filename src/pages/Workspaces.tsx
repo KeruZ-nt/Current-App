@@ -154,11 +154,13 @@ export const Workspaces = () => {
     if (existingRequest) {
       if (existingRequest.status === 'pending') {
         setError('Ya tienes una solicitud pendiente para este almacén. Espera la aprobación del administrador.');
-      } else if (existingRequest.status === 'rejected') {
-        setError('Tu solicitud fue rechazada. Contacta al administrador del almacén.');
+        setActionLoading(false);
+        return;
       }
-      setActionLoading(false);
-      return;
+      // Si fue rechazada antes, eliminar el registro viejo para permitir re-solicitar
+      if (existingRequest.status === 'rejected') {
+        await supabase.from('access_requests').delete().eq('id', existingRequest.id);
+      }
     }
 
     // 4. Create access request
