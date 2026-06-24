@@ -143,69 +143,26 @@ export const Workspaces = () => {
       return;
     }
 
-    // 3. Check if already has a pending request
-    const { data: existingRequests } = await supabase
-      .from('access_requests')
-      .select('id, status')
-      .eq('workspace_id', wsData.id)
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+    // 3. Request access via RPC (creates request + notifies admins atomically)
+    const userName = profile?.full_name || profile?.email || user.email || 'Un usuario';
+    const { data: rpcResult, error: rpcError } = await supabase
+      .rpc('request_workspace_access', {
+        p_workspace_id: wsData.id,
+        p_user_id: user.id,
+        p_user_name: userName,
+        p_workspace_name: wsData.name,
+      });
 
-    const latestRequest = existingRequests?.[0];
-
-    if (latestRequest) {
-      if (latestRequest.status === 'pending') {
-        setError('Ya tienes una solicitud pendiente para este almacén. Espera la aprobación del administrador.');
-        setActionLoading(false);
-        return;
-      }
-      // Si fue rechazada antes, reactivar la misma solicitud
-      if (latestRequest.status === 'rejected') {
-        const { error: reActivateError } = await supabase
-          .from('access_requests')
-          .update({ status: 'pending' })
-          .eq('id', latestRequest.id);
-
-        if (reActivateError) {
-          setError(sanitizeError(reActivateError));
-          setActionLoading(false);
-          return;
-        }
-
-        setJoinMode(false);
-        setInviteCode('');
-        addToast({ type: 'success', message: 'Solicitud enviada. El administrador revisará tu acceso y recibirás una notificación con el resultado.' });
-        setActionLoading(false);
-        return;
-      }
-    }
-
-    // 4. Create access request
-    const { error: reqError } = await supabase
-      .from('access_requests')
-      .insert({ workspace_id: wsData.id, user_id: user.id, status: 'pending' });
-
-    if (reqError) {
-      setError(reqError.message);
+    if (rpcError) {
+      setError(sanitizeError(rpcError));
       setActionLoading(false);
       return;
     }
 
-    // 5. Notify workspace admins
-    const { data: adminIds } = await supabase
-      .rpc('get_admin_user_ids', { p_workspace_id: wsData.id });
-
-    if (adminIds && adminIds.length > 0) {
-      const userName = profile?.full_name || profile?.email || user.email || 'Un usuario';
-      const notifications = adminIds.map((admin: { user_id: string }) => ({
-        user_id: admin.user_id,
-        type: 'access_request',
-        title: 'Nueva solicitud de acceso',
-        message: `${userName} quiere unirse al almacén "${wsData.name}".`,
-        data: { workspace_id: wsData.id, workspace_name: wsData.name, requester_id: user.id },
-        read: false,
-      }));
-      await supabase.from('notifications').insert(notifications);
+    if (rpcResult?.status === 'pending_exists') {
+      setError('Ya tienes una solicitud pendiente para este almacén. Espera la aprobación del administrador.');
+      setActionLoading(false);
+      return;
     }
 
     setJoinMode(false);
