@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Bell, CheckCheck, Users, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useNotificationStore } from '../../store/notificationStore';
+import { useWorkspaceStore } from '../../store/workspaceStore';
 import type { Notification } from '../../types';
 
 function timeAgo(dateStr?: string): string {
@@ -72,6 +73,11 @@ export const NotificationBell = () => {
     // Admin: solicitud de acceso → redirige a /team
     if (notif.type === 'access_request') {
       setOpen(false);
+      if (notif.data?.workspace_id) {
+        const { workspaces, setActiveWorkspace } = useWorkspaceStore.getState();
+        const wsToSelect = workspaces.find((w: any) => w.workspace.id === notif.data.workspace_id);
+        if (wsToSelect) setActiveWorkspace(wsToSelect.workspace);
+      }
       navigate('/team');
     }
     // Usuario: aceptado/rechazado → solo marcar leído (ya visible en el panel)

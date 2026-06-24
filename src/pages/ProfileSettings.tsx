@@ -1,8 +1,9 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { sanitizeError } from '../lib/errors';
 import { useAuthStore } from '../store/authStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
+import { useToastStore } from '../store/toastStore';
 import { Camera, Save, User, Mail, Phone, Shield, X, Trash2, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -19,8 +20,8 @@ export const ProfileSettings = () => {
   const { user, profile, setUser } = useAuthStore();
   const { clearWorkspaces, activeRole } = useWorkspaceStore();
   const navigate = useNavigate();
+  const { addToast } = useToastStore();
   const [loading, setLoading] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteReason, setDeleteReason] = useState(DELETE_REASONS[0]);
   const [deleteCustomReason, setDeleteCustomReason] = useState('');
@@ -63,7 +64,7 @@ export const ProfileSettings = () => {
     setLoading(true);
     const { error } = await supabase.from('profiles').update({ full_name: formData.full_name, phone: formData.phone, avatar_url: formData.avatar_url }).eq('id', user.id);
     if (error) { alert(sanitizeError(error)); }
-    else { setShowSuccessModal(true); await setUser(user); setTimeout(() => setShowSuccessModal(false), 3000); }
+    else { await setUser(user); addToast({ type: 'success', message: 'Perfil actualizado correctamente.' }); }
     setLoading(false);
   };
 
@@ -91,16 +92,6 @@ export const ProfileSettings = () => {
 
   return (
     <>
-      {showSuccessModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm animate-in fade-in zoom-in duration-200">
-          <div className="flex flex-col items-center gap-4 rounded-2xl border bg-card p-8 shadow-lg max-w-sm w-full text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary"><Save className="h-6 w-6" /></div>
-            <div><h3 className="text-xl font-bold">Perfil Actualizado</h3><p className="text-sm text-muted-foreground mt-2">Tus cambios se han guardado correctamente.</p></div>
-            <button onClick={() => setShowSuccessModal(false)} className="mt-4 w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">Aceptar</button>
-          </div>
-        </div>
-      )}
-
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm animate-in fade-in zoom-in duration-200 p-4">
           <div className="flex flex-col gap-5 rounded-2xl border border-red-500/20 bg-card p-6 shadow-2xl max-w-md w-full">

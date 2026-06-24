@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Bell, CheckCheck, Users, CheckCircle2, XCircle, Clock, ArrowLeft } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useNotificationStore } from '../store/notificationStore';
+import { useWorkspaceStore } from '../store/workspaceStore';
 import type { Notification } from '../types';
 
 function timeAgo(dateStr?: string): string {
@@ -63,6 +64,11 @@ export const Notifications = () => {
       await markAsRead(notif.id);
     }
     if (notif.type === 'access_request') {
+      if (notif.data?.workspace_id) {
+        const { workspaces, setActiveWorkspace } = useWorkspaceStore.getState();
+        const wsToSelect = workspaces.find((w: any) => w.workspace.id === notif.data.workspace_id);
+        if (wsToSelect) setActiveWorkspace(wsToSelect.workspace);
+      }
       navigate('/team');
     }
   };
