@@ -28,6 +28,7 @@ export function sanitizeError(error: unknown): string {
 
   if (typeof err.message === 'string') {
     if (AUTH_MESSAGES[err.message]) return AUTH_MESSAGES[err.message];
+    return err.message;
   }
 
   return 'Ocurrió un error. Intenta de nuevo.';
