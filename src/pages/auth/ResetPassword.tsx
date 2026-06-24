@@ -15,7 +15,7 @@ export const ResetPassword = () => {
 
   useEffect(() => {
     // Escuchar cambios de estado para asegurar que el token se ha procesado
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         // Todo listo para cambiar la clave
       }
