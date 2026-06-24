@@ -144,25 +144,27 @@ export const Workspaces = () => {
     }
 
     // 3. Check if already has a pending request
-    const { data: existingRequest } = await supabase
+    const { data: existingRequests } = await supabase
       .from('access_requests')
       .select('id, status')
       .eq('workspace_id', wsData.id)
       .eq('user_id', user.id)
-      .maybeSingle();
+      .order('created_at', { ascending: false });
 
-    if (existingRequest) {
-      if (existingRequest.status === 'pending') {
+    const latestRequest = existingRequests?.[0];
+
+    if (latestRequest) {
+      if (latestRequest.status === 'pending') {
         setError('Ya tienes una solicitud pendiente para este almacén. Espera la aprobación del administrador.');
         setActionLoading(false);
         return;
       }
       // Si fue rechazada antes, reactivar la misma solicitud
-      if (existingRequest.status === 'rejected') {
+      if (latestRequest.status === 'rejected') {
         const { error: reActivateError } = await supabase
           .from('access_requests')
           .update({ status: 'pending' })
-          .eq('id', existingRequest.id);
+          .eq('id', latestRequest.id);
 
         if (reActivateError) {
           setError(sanitizeError(reActivateError));
@@ -190,15 +192,12 @@ export const Workspaces = () => {
     }
 
     // 5. Notify workspace admins
-    const { data: admins } = await supabase
-      .from('workspace_members')
-      .select('user_id')
-      .eq('workspace_id', wsData.id)
-      .eq('role', 'admin');
+    const { data: adminIds } = await supabase
+      .rpc('get_admin_user_ids', { p_workspace_id: wsData.id });
 
-    if (admins && admins.length > 0) {
+    if (adminIds && adminIds.length > 0) {
       const userName = profile?.full_name || profile?.email || user.email || 'Un usuario';
-      const notifications = admins.map((admin) => ({
+      const notifications = adminIds.map((admin: { user_id: string }) => ({
         user_id: admin.user_id,
         type: 'access_request',
         title: 'Nueva solicitud de acceso',
