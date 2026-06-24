@@ -11,6 +11,7 @@ import { ProtectedRoute } from './components/layout/ProtectedRoute';
 // Pages
 import { Login } from './pages/auth/Login';
 import { Register } from './pages/auth/Register';
+import { ResetPassword } from './pages/auth/ResetPassword';
 import { Dashboard } from './pages/Dashboard';
 
 import { Inventory } from './pages/Inventory';
@@ -54,6 +55,7 @@ function App() {
         {/* Public Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         {/* Protected Routes */}
         <Route element={<ProtectedRoute />}>

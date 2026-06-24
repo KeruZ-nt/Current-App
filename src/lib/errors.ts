@@ -4,6 +4,8 @@ const AUTH_MESSAGES: Record<string, string> = {
   'User already registered': 'Este correo ya está registrado.',
   'Password should be at least 6 characters': 'La contraseña debe tener al menos 6 caracteres.',
   'Password should be at least 8 characters': 'La contraseña debe tener al menos 8 caracteres.',
+  'Token has expired or is invalid': 'El enlace de recuperación ha expirado o es inválido. Solicita uno nuevo.',
+  'For security purposes, you can only request this once every 60 seconds': 'Por seguridad, debes esperar un minuto antes de volver a solicitarlo.',
   'rate_limit': 'Demasiados intentos. Intenta de nuevo más tarde.',
 };
 
