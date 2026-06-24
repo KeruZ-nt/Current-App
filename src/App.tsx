@@ -22,6 +22,8 @@ import { Team } from './pages/Team';
 import { ProfileSettings } from './pages/ProfileSettings';
 import { Workspaces } from './pages/Workspaces';
 import { WelcomeProfile } from './pages/auth/WelcomeProfile';
+import { Notifications } from './pages/Notifications';
+import { ToastContainer } from './components/ui/Toast';
 
 function App() {
   const { setUser } = useAuthStore();
@@ -48,6 +50,7 @@ function App() {
 
   return (
     <Router>
+      <ToastContainer />
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<Login />} />
@@ -68,6 +71,7 @@ function App() {
             <Route path="/history" element={<History />} />
             <Route path="/suppliers" element={<Suppliers />} />
             <Route path="/team" element={<Team />} />
+            <Route path="/notifications" element={<Notifications />} />
           </Route>
         </Route>
       </Routes>

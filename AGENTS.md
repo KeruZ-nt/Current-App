@@ -24,10 +24,11 @@ No test framework. No codegen.
 | Path | Purpose |
 |------|---------|
 | `src/lib/` | Supabase client, `sanitizeError()`, bulk-parser |
-| `src/store/` | Zustand stores: auth, workspace, notifications |
+| `src/store/` | Zustand stores: auth, workspace, notification, toast |
 | `src/types/` | Shared TS interfaces |
 | `src/pages/` | Route page components |
 | `src/components/layout/` | Sidebar, Header, MainLayout, TopNavLayout, ProtectedRoute |
+| `src/components/ui/` | Reusable Toast, ConfirmModal components |
 | `supabase/migrations/` | SQL scripts to run in Supabase Dashboard |
 
 Two layouts: `MainLayout` (sidebar + header) and `TopNavLayout` (top nav only).
@@ -38,7 +39,7 @@ Two layouts: `MainLayout` (sidebar + header) and `TopNavLayout` (top nav only).
 |------|-----------|--------|
 | `/login`, `/register` | Public | None |
 | `/welcome`, `/workspaces`, `/profile` | Protected | TopNavLayout |
-| `/`, `/inventory`, `/sales`, `/purchases`, `/history`, `/suppliers`, `/team` | Protected | MainLayout |
+| `/`, `/inventory`, `/sales`, `/purchases`, `/history`, `/suppliers`, `/team`, `/notifications` | Protected | MainLayout |
 
 ## Supabase
 

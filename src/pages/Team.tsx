@@ -3,34 +3,30 @@ import { supabase } from '../lib/supabase';
 import { sanitizeError } from '../lib/errors';
 import { useAuthStore } from '../store/authStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
+import { useToastStore } from '../store/toastStore';
+import { ConfirmModal } from '../components/ui/ConfirmModal';
 import {
   ShieldAlert, User, Check, Trash2, ShieldCheck, Loader2,
   UserCheck, UserX, Clock, ChevronDown
 } from 'lucide-react';
 import type { AccessRequest } from '../types';
 
-/**
- * Componente Team
- * Permite a los administradores visualizar y gestionar los miembros del almacén activo.
- * Funcionalidades: ver miembros, ver solicitudes pendientes, aceptar/rechazar con rol, cambiar roles y eliminar usuarios.
- */
-
 export const Team = () => {
   const { profile } = useAuthStore();
   const { activeWorkspace, activeRole } = useWorkspaceStore();
+  const { addToast } = useToastStore();
 
   const [members, setMembers] = useState<any[]>([]);
   const [pendingRequests, setPendingRequests] = useState<AccessRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [requestsLoading, setRequestsLoading] = useState(false);
-  // role selection per request id
   const [requestRoles, setRequestRoles] = useState<Record<string, 'admin' | 'collaborator'>>({});
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const fetchMembers = async () => {
     if (!activeWorkspace) return;
     setLoading(true);
 
-    // Step 1: Get workspace members
     const { data: membersData, error: membersError } = await supabase
       .from('workspace_members')
       .select('*')
@@ -48,7 +44,6 @@ export const Team = () => {
       return;
     }
 
-    // Step 2: Get profiles separately (avoids FK join dependency)
     const userIds = membersData.map((m) => m.user_id);
     const { data: profilesData, error: profilesError } = await supabase
       .from('profiles')
@@ -59,7 +54,6 @@ export const Team = () => {
       console.error('Error fetching profiles:', profilesError);
     }
 
-    // Step 3: Merge
     const merged = membersData.map((m) => ({
       ...m,
       profile: profilesData?.find((p) => p.id === m.user_id) ?? null,
@@ -91,7 +85,6 @@ export const Team = () => {
       return;
     }
 
-    // Fetch profiles for requesters
     const requesterIds = requestsData.map((r) => r.user_id);
     const { data: profilesData } = await supabase
       .from('profiles')
@@ -105,7 +98,6 @@ export const Team = () => {
 
     setPendingRequests(merged as AccessRequest[]);
 
-    // Initialize default roles
     const defaultRoles: Record<string, 'admin' | 'collaborator'> = {};
     requestsData.forEach((r) => { defaultRoles[r.id] = 'collaborator'; });
     setRequestRoles((prev) => ({ ...defaultRoles, ...prev }));
@@ -120,47 +112,38 @@ export const Team = () => {
     }
   }, [activeWorkspace]);
 
-  /**
-   * Acepta una solicitud: inserta en workspace_members y notifica al usuario.
-   */
   const handleAcceptRequest = async (request: AccessRequest) => {
     const role = requestRoles[request.id] ?? 'collaborator';
 
-    // Insert as member
     const { error: memberError } = await supabase
       .from('workspace_members')
       .insert({ workspace_id: request.workspace_id, user_id: request.user_id, role });
 
     if (memberError) {
-      alert(sanitizeError(memberError));
+      addToast({ type: 'error', message: sanitizeError(memberError) });
       return;
     }
 
-    // Update request status
     await supabase
       .from('access_requests')
       .update({ status: 'accepted' })
       .eq('id', request.id);
 
-    // Notify the user
     const workspaceName = activeWorkspace?.name ?? 'el almacén';
     const rolLabel = role === 'admin' ? 'Administrador' : 'Colaborador';
     await supabase.from('notifications').insert({
       user_id: request.user_id,
       type: 'access_accepted',
-      title: '¡Acceso aprobado! 🎉',
+      title: '¡Acceso aprobado!',
       message: `Tu solicitud para unirte a "${workspaceName}" fue aceptada. Tu rol es: ${rolLabel}.`,
       data: { workspace_id: request.workspace_id, workspace_name: workspaceName, role },
       read: false,
     });
 
-    // Refresh
+    addToast({ type: 'success', message: `Solicitud aceptada. ${rolLabel} agregado al equipo.` });
     await Promise.all([fetchMembers(), fetchPendingRequests()]);
   };
 
-  /**
-   * Rechaza una solicitud y notifica al usuario.
-   */
   const handleRejectRequest = async (request: AccessRequest) => {
     await supabase
       .from('access_requests')
@@ -178,15 +161,12 @@ export const Team = () => {
     });
 
     setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
+    addToast({ type: 'info', message: 'Solicitud rechazada.' });
   };
 
-  /**
-   * Actualiza el rol de un miembro específico (admin o colaborador).
-   */
   const handleUpdateRole = async (memberId: string, newRole: 'admin' | 'collaborator') => {
     if (activeRole !== 'admin') return;
 
-    // Optimistic UI
     setMembers(members.map((m) => (m.id === memberId ? { ...m, role: newRole } : m)));
 
     const { error } = await supabase
@@ -195,27 +175,29 @@ export const Team = () => {
       .eq('id', memberId);
 
     if (error) {
-      alert(sanitizeError(error));
-      fetchMembers(); // rollback
+      addToast({ type: 'error', message: sanitizeError(error) });
+      fetchMembers();
+    } else {
+      addToast({ type: 'success', message: `Rol actualizado a ${newRole === 'admin' ? 'Administrador' : 'Colaborador'}.` });
     }
   };
 
-  const handleDeleteMember = async (memberId: string) => {
+  const handleDeleteMember = async () => {
+    if (!deleteTarget) return;
     if (activeRole !== 'admin') return;
-
-    const confirmed = window.confirm('¿Seguro que deseas eliminar a este usuario del almacén?');
-    if (!confirmed) return;
 
     const { error } = await supabase
       .from('workspace_members')
       .delete()
-      .eq('id', memberId);
+      .eq('id', deleteTarget.id);
 
     if (error) {
-      alert(sanitizeError(error));
+      addToast({ type: 'error', message: sanitizeError(error) });
     } else {
-      setMembers(members.filter((m) => m.id !== memberId));
+      setMembers(members.filter((m) => m.id !== deleteTarget.id));
+      addToast({ type: 'success', message: 'Miembro eliminado del almacén.' });
     }
+    setDeleteTarget(null);
   };
 
   if (activeRole !== 'admin') {
@@ -245,7 +227,7 @@ export const Team = () => {
             <button
               onClick={() => {
                 navigator.clipboard.writeText(activeWorkspace.invite_code);
-                alert('¡Código copiado al portapapeles!');
+                addToast({ type: 'success', message: '¡Código copiado al portapapeles!' });
               }}
               className="flex h-10 items-center justify-center rounded-xl bg-indigo-500/10 px-4 text-sm font-medium text-indigo-400 hover:bg-indigo-500/20 transition-colors"
             >
@@ -255,7 +237,6 @@ export const Team = () => {
         )}
       </div>
 
-      {/* Pending Requests Section */}
       {(requestsLoading || pendingRequests.length > 0) && (
         <div className="rounded-2xl glass overflow-hidden shadow-xl border border-amber-500/20">
           <div className="flex items-center gap-2 px-5 py-3.5 bg-amber-500/5 border-b border-amber-500/10">
@@ -294,7 +275,6 @@ export const Team = () => {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    {/* Role selector */}
                     <div className="relative">
                       <select
                         value={requestRoles[req.id] ?? 'collaborator'}
@@ -312,7 +292,6 @@ export const Team = () => {
                       <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                     </div>
 
-                    {/* Accept */}
                     <button
                       onClick={() => handleAcceptRequest(req)}
                       className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-500/20 transition-colors border border-emerald-500/20"
@@ -322,7 +301,6 @@ export const Team = () => {
                       Aceptar
                     </button>
 
-                    {/* Reject */}
                     <button
                       onClick={() => handleRejectRequest(req)}
                       className="inline-flex items-center gap-1.5 rounded-xl bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-500 hover:bg-red-500/20 transition-colors border border-red-500/20"
@@ -339,7 +317,6 @@ export const Team = () => {
         </div>
       )}
 
-      {/* Members Table */}
       <div className="rounded-2xl glass overflow-hidden shadow-2xl relative">
         <div className="relative w-full overflow-auto">
           <table className="w-full caption-bottom text-sm min-w-[700px]">
@@ -406,7 +383,10 @@ export const Team = () => {
                             <option value="collaborator">Colaborador</option>
                           </select>
                           <button
-                            onClick={() => handleDeleteMember(m.id)}
+                            onClick={() => {
+                              const member = members.find((mem) => mem.id === m.id);
+                              setDeleteTarget({ id: m.id, name: member?.profile?.full_name || member?.profile?.email || 'este usuario' });
+                            }}
                             className="inline-flex items-center rounded-xl p-2 text-destructive hover:bg-destructive/20 transition-colors"
                             title="Eliminar miembro del almacén"
                           >
@@ -424,7 +404,20 @@ export const Team = () => {
           </table>
         </div>
       </div>
+
+      <ConfirmModal
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteMember}
+        title="Eliminar miembro"
+        message={
+          <>
+            ¿Seguro que deseas eliminar a <strong className="text-foreground">{deleteTarget?.name}</strong> del almacén?
+          </>
+        }
+        confirmText="Sí, eliminar"
+        variant="danger"
+      />
     </div>
   );
 };
-

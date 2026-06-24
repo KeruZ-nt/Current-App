@@ -8,6 +8,7 @@ import {
   Users, 
   Clock,
   Shield,
+  Bell,
   X
 } from 'lucide-react';
 
@@ -19,6 +20,7 @@ const navigation = [
   { name: 'Historial', href: '/history', icon: Clock },
   { name: 'Proveedores', href: '/suppliers', icon: Users },
   { name: 'Equipo', href: '/team', icon: Shield },
+  { name: 'Notificaciones', href: '/notifications', icon: Bell },
 ];
 
 interface SidebarProps {

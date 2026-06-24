@@ -4,12 +4,14 @@ import { supabase } from '../lib/supabase';
 import { sanitizeError } from '../lib/errors';
 import { useAuthStore } from '../store/authStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
+import { useToastStore } from '../store/toastStore';
 import { Building2, Plus, Users, ArrowRight, Loader2, Pencil, Trash2, LogOut, AlertTriangle } from 'lucide-react';
 
 export const Workspaces = () => {
   const { user, profile } = useAuthStore();
   const { workspaces, setActiveWorkspace, fetchWorkspaces } = useWorkspaceStore();
   const navigate = useNavigate();
+  const { addToast } = useToastStore();
 
   const [loading, setLoading] = useState(true);
   const [createMode, setCreateMode] = useState(false);
@@ -193,8 +195,7 @@ export const Workspaces = () => {
     setJoinMode(false);
     setInviteCode('');
     setError(null);
-    // Show success feedback via a temporary message
-    alert('✅ Solicitud enviada. El administrador revisará tu acceso y recibirás una notificación con el resultado.');
+    addToast({ type: 'success', message: 'Solicitud enviada. El administrador revisará tu acceso y recibirás una notificación con el resultado.' });
     setActionLoading(false);
   };
 
