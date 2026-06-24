@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
-import { ShieldAlert, User, Check, Trash2, ShieldCheck, Loader2, Mail, Send, CheckCircle } from 'lucide-react';
+import { ShieldAlert, User, Check, Trash2, ShieldCheck, Loader2 } from 'lucide-react';
 
 /**
  * Componente Team
@@ -11,89 +11,86 @@ import { ShieldAlert, User, Check, Trash2, ShieldCheck, Loader2, Mail, Send, Che
  */
 
 export const Team = () => {
-  const { user, profile } = useAuthStore();
+  const { profile } = useAuthStore();
   const { activeWorkspace, activeRole } = useWorkspaceStore();
 
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Invite by email
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteSending, setInviteSending] = useState(false);
-  const [inviteSent, setInviteSent] = useState(false);
-  const [inviteError, setInviteError] = useState<string | null>(null);
-  
-  useEffect(() => {
-    /**
-     * Obtiene la lista de miembros del almacén activo desde Supabase,
-     * incluyendo el perfil asociado a cada usuario.
-     */
-    const fetchMembers = async () => {
-      if (!activeWorkspace) return;
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('workspace_members')
-        .select('*, profile:profiles(*)')
-        .eq('workspace_id', activeWorkspace.id)
-        .order('joined_at', { ascending: false });
-        
-      if (!error && data) {
-        setMembers(data);
-      }
-      setLoading(false);
-    };
+  const fetchMembers = async () => {
+    if (!activeWorkspace) return;
+    setLoading(true);
 
+    // Step 1: Get workspace members
+    const { data: membersData, error: membersError } = await supabase
+      .from('workspace_members')
+      .select('*')
+      .eq('workspace_id', activeWorkspace.id);
+
+    if (membersError || !membersData) {
+      console.error('Error fetching members:', membersError);
+      setLoading(false);
+      return;
+    }
+
+    if (membersData.length === 0) {
+      setMembers([]);
+      setLoading(false);
+      return;
+    }
+
+    // Step 2: Get profiles separately (avoids FK join dependency)
+    const userIds = membersData.map((m) => m.user_id);
+    const { data: profilesData, error: profilesError } = await supabase
+      .from('profiles')
+      .select('*')
+      .in('id', userIds);
+
+    if (profilesError) {
+      console.error('Error fetching profiles:', profilesError);
+    }
+
+    // Step 3: Merge
+    const merged = membersData.map((m) => ({
+      ...m,
+      profile: profilesData?.find((p) => p.id === m.user_id) ?? null,
+    }));
+
+    setMembers(merged);
+    setLoading(false);
+  };
+
+  useEffect(() => {
     if (activeWorkspace) {
       fetchMembers();
     }
   }, [activeWorkspace]);
 
   /**
-   * Refresca manualmente la tabla (por ejemplo después de un update/delete fallido).
-   */
-  const refreshMembers = async () => {
-    if (!activeWorkspace) return;
-    const { data, error } = await supabase
-      .from('workspace_members')
-      .select('*, profile:profiles(*)')
-      .eq('workspace_id', activeWorkspace.id)
-      .order('joined_at', { ascending: false });
-      
-    if (!error && data) {
-      setMembers(data);
-    }
-  };
-
-  /**
    * Actualiza el rol de un miembro específico (admin o colaborador).
-   * Solo los administradores pueden ejecutar esta acción.
-   * Utiliza UI optimista (actualiza estado local antes de BD).
-   * 
-   * @param memberId ID del registro en workspace_members
-   * @param newRole El nuevo rol a asignar
    */
   const handleUpdateRole = async (memberId: string, newRole: 'admin' | 'collaborator') => {
     if (activeRole !== 'admin') return;
-    
+
     // Optimistic UI
-    setMembers(members.map(m => m.id === memberId ? { ...m, role: newRole } : m));
-    
+    setMembers(members.map((m) => (m.id === memberId ? { ...m, role: newRole } : m)));
+
     const { error } = await supabase
       .from('workspace_members')
       .update({ role: newRole })
       .eq('id', memberId);
-      
+
     if (error) {
       alert('Error actualizando rol: ' + error.message);
-      refreshMembers(); // rollback
+      fetchMembers(); // rollback
     }
   };
 
   const handleDeleteMember = async (memberId: string) => {
     if (activeRole !== 'admin') return;
-    
-    const confirm = window.confirm("¿Seguro que deseas eliminar a este usuario del almacén?");
-    if (!confirm) return;
+
+    const confirmed = window.confirm('¿Seguro que deseas eliminar a este usuario del almacén?');
+    if (!confirmed) return;
 
     const { error } = await supabase
       .from('workspace_members')
@@ -103,35 +100,7 @@ export const Team = () => {
     if (error) {
       alert('Error eliminando miembro: ' + error.message);
     } else {
-      setMembers(members.filter(m => m.id !== memberId));
-    }
-  };
-
-  const handleSendInvite = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeWorkspace?.invite_code || !inviteEmail) return;
-    setInviteSending(true);
-    setInviteError(null);
-    try {
-      const res = await fetch('/api/send-invite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: inviteEmail,
-          workspaceName: activeWorkspace.name,
-          inviteCode: activeWorkspace.invite_code,
-          senderName: profile?.full_name || user?.email,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Error al enviar');
-      setInviteSent(true);
-      setInviteEmail('');
-      setTimeout(() => setInviteSent(false), 4000);
-    } catch (err: any) {
-      setInviteError(err.message);
-    } finally {
-      setInviteSending(false);
+      setMembers(members.filter((m) => m.id !== memberId));
     }
   };
 
@@ -152,47 +121,22 @@ export const Team = () => {
           <h1 className="text-3xl font-bold tracking-tight">Equipo y Colaboradores</h1>
           <p className="text-muted-foreground">Gestiona los accesos y roles de tu personal.</p>
         </div>
-        
+
         {activeWorkspace?.invite_code && (
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2 rounded-2xl glass p-2 shadow-xl border border-black/10">
-              <div className="flex flex-col px-3">
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Código de Invitación</span>
-                <span className="font-mono text-lg font-bold tracking-widest text-indigo-400">{activeWorkspace.invite_code}</span>
-              </div>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(activeWorkspace.invite_code);
-                  alert('¡Código copiado al portapapeles!');
-                }}
-                className="flex h-10 items-center justify-center rounded-xl bg-indigo-500/10 px-4 text-sm font-medium text-indigo-400 hover:bg-indigo-500/20 transition-colors"
-              >
-                Copiar
-              </button>
+          <div className="flex items-center gap-2 rounded-2xl glass p-2 shadow-xl border border-black/10">
+            <div className="flex flex-col px-3">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Código de Invitación</span>
+              <span className="font-mono text-lg font-bold tracking-widest text-indigo-400">{activeWorkspace.invite_code}</span>
             </div>
-            {/* Send invite by email */}
-            <form onSubmit={handleSendInvite} className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="email"
-                  required
-                  value={inviteEmail}
-                  onChange={e => { setInviteEmail(e.target.value); setInviteError(null); setInviteSent(false); }}
-                  placeholder="Invitar por correo..."
-                  className="flex h-10 w-full rounded-xl border border-black/10 bg-background/80 pl-9 pr-3 text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={inviteSending}
-                className="flex h-10 items-center gap-1.5 rounded-xl bg-indigo-500 px-4 text-sm font-semibold text-white hover:bg-indigo-400 transition-colors disabled:opacity-60"
-              >
-                {inviteSending ? <Loader2 className="h-4 w-4 animate-spin" /> : inviteSent ? <CheckCircle className="h-4 w-4" /> : <Send className="h-4 w-4" />}
-                {inviteSent ? '¡Enviado!' : 'Enviar'}
-              </button>
-            </form>
-            {inviteError && <p className="text-xs text-destructive">{inviteError}</p>}
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(activeWorkspace.invite_code);
+                alert('¡Código copiado al portapapeles!');
+              }}
+              className="flex h-10 items-center justify-center rounded-xl bg-indigo-500/10 px-4 text-sm font-medium text-indigo-400 hover:bg-indigo-500/20 transition-colors"
+            >
+              Copiar
+            </button>
           </div>
         )}
       </div>
@@ -234,7 +178,7 @@ export const Team = () => {
                           )}
                         </div>
                         <div>
-                          <p className="text-foreground">{m.profile?.full_name || m.profile?.email}</p>
+                          <p className="text-foreground">{m.profile?.full_name || m.profile?.email || m.user_id}</p>
                           <p className="text-xs text-muted-foreground">{m.profile?.email}</p>
                         </div>
                       </div>
@@ -254,8 +198,8 @@ export const Team = () => {
                     <td className="p-4 align-middle text-right">
                       {m.user_id !== profile?.id ? (
                         <div className="flex justify-end gap-2">
-                          <select 
-                            value={m.role} 
+                          <select
+                            value={m.role}
                             onChange={(e) => handleUpdateRole(m.id, e.target.value as any)}
                             className="h-9 rounded-xl border border-black/10 bg-background/80 px-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
                           >
